@@ -14,6 +14,8 @@
 #define TFT_CS  15  // HSPI-SS0
 #define TFT_LED 0   // 0 if wired to +5V directly
 
+#define DARKBLUE_CUSTOM 0x0009		/// text color of the day theme
+
 Arduino_ESP32SPI *bus = new Arduino_ESP32SPI(TFT_RS, TFT_CS, TFT_CLK, TFT_SDI, TFT_SDO);
 Arduino_ILI9225 *tft = new Arduino_ILI9225(bus, TFT_RST);
 //CDisplayForecast *displayForecast = new CDisplayForecast(tft);
@@ -1807,6 +1809,17 @@ unsigned char BackgroundNight[13280] = {
 };
 // Nha TODO -> End
 
+const unsigned char IconLocation [] PROGMEM = {
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0xc0, 0x00, 0x00, 0x10, 0x20, 0x00, 0x00, 0x60, 0x18, 0x00, 
+	0x00, 0x40, 0x08, 0x00, 0x00, 0x83, 0x04, 0x00, 0x00, 0x8c, 0xc4, 0x00, 0x01, 0x08, 0x42, 0x00, 
+	0x01, 0x10, 0x22, 0x00, 0x01, 0x08, 0x42, 0x00, 0x01, 0x08, 0x42, 0x00, 0x00, 0x87, 0x84, 0x00, 
+	0x00, 0x80, 0x04, 0x00, 0x00, 0x80, 0x04, 0x00, 0x00, 0x40, 0x08, 0x00, 0x00, 0x40, 0x08, 0x00, 
+	0x00, 0x20, 0x10, 0x00, 0x00, 0x20, 0x10, 0x00, 0x00, 0x10, 0x20, 0x00, 0x00, 0x10, 0x20, 0x00, 
+	0x03, 0xc8, 0x4f, 0x00, 0x0c, 0x0c, 0xc0, 0xc0, 0x18, 0x04, 0x80, 0x60, 0x10, 0x03, 0x00, 0x20, 
+	0x10, 0x00, 0x00, 0x20, 0x11, 0xe0, 0x00, 0x20, 0x0c, 0x13, 0x00, 0xc0, 0x03, 0x80, 0x07, 0x00, 
+	0x00, 0x7f, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 bool onDecode(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap)
 {
   tft->draw16bitRGBBitmap(x, y, bitmap, w, h);
@@ -1835,20 +1848,24 @@ void setup() {
   	
 	// init flash file system
   	ffs_init();
- 	ffs_format();
-
+ 	
 	// update progress bar
 	UpdateProgressbar(70);
 
 	// write to flash file system
-  	ffs_write_file("/background_Day.jpg", (const uint8_t*)BackgroundDay, 8039); // Nha TODO
-  	ffs_write_file("/background_Night.jpg", (const uint8_t*)BackgroundNight, 13280); // Nha TODO
+	if(ffs_verify_file("/background_Day.jpg")!=FFS_OK
+	|| ffs_verify_file("/background_Night.jpg")!=FFS_OK)
+	{
+		ffs_format();
+		ffs_write_file("/background_Day.jpg", (const uint8_t*)BackgroundDay, 8039); // Nha TODO
+		ffs_write_file("/background_Night.jpg", (const uint8_t*)BackgroundNight, 13280); // Nha TODO
+	}
 
 	// update progress bar
   	UpdateProgressbar(100);
 	sleep(2);
 
-	// set callback  Jpg
+	// set callback Jpg
   	TJpgDec.setCallback(onDecode);
 }
 
@@ -1856,30 +1873,30 @@ void setup() {
 void loop() {
 
   	TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg");
-	drawLocation(20, 20,"Hochiminh city",2,BLACK);
-	drawTemperature(20,60,"33",5,BLACK);
-	drawDescription(20, 105,"Clear sky",2,BLACK);
+	drawLocation(20, 20,"Hochiminh",2,DARKBLUE_CUSTOM);
+	drawTemperature(20,60,"33",5,DARKBLUE_CUSTOM);
+	drawDescription(20, 105,"Clear sky",2,DARKBLUE_CUSTOM);
 
 	sleep(10);
 
 	TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg");
-	drawLocation(20, 20,"Hochiminh city",2,BLACK);
-	drawTemperature(20,60,"29",5,BLACK);
-	drawDescription(20, 105,"Broken clouds",2,BLACK);
+	drawLocation(20, 20,"Hochiminh",2,DARKBLUE_CUSTOM);
+	drawTemperature(20,60,"29",5,DARKBLUE_CUSTOM);
+	drawDescription(20, 105,"Broken clouds",2,DARKBLUE_CUSTOM);
 
 	sleep(10);
 
 	TJpgDec.drawFsJpg(0, 0, "/background_Night.jpg");
-	drawLocation(20, 20,"Hochiminh city",2,DARKGREY);
-	drawTemperature(20,60,"26",5,DARKGREY);
-	drawDescription(20, 105,"Scattered clouds",2,DARKGREY);
+	drawLocation(20, 20,"Hochiminh city",2,LIGHTGREY);
+	drawTemperature(20,60,"26",5,LIGHTGREY);
+	drawDescription(20, 105,"Scattered clouds",2,LIGHTGREY);
 
 	sleep(10);
 
 	TJpgDec.drawFsJpg(0, 0, "/background_Night.jpg");
-	drawLocation(20, 20,"Hochiminh city",2,DARKGREY);
-	drawTemperature(20,60,"21",5,DARKGREY);
-	drawDescription(20, 105,"Thunderstorm",2,DARKGREY);
+	drawLocation(20, 20,"Hochiminh city",2,LIGHTGREY);
+	drawTemperature(20,60,"21",5,LIGHTGREY);
+	drawDescription(20, 105,"Thunderstorm",2,LIGHTGREY);
 
 	sleep(10);
 
@@ -1934,8 +1951,9 @@ String szDescription, int8_t nTextSize, uint16_t color) {
 void drawLocation(int16_t x, int16_t y, 
 String szLocation, int8_t nTextSize, uint16_t color) {
 
+	//drawBitmapCustom(x,y-10,IconLocation,50,50,color);
 	tft->setTextColor(color);
-	tft->setCursor(x, y);
+	tft->setCursor(x + 32, y);
 	tft->setTextSize(nTextSize);
 	tft->println(szLocation);
 }
