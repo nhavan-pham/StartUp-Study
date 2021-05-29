@@ -13,6 +13,10 @@
 #define TFT_SDI 13  // HSPI-MOSI
 #define TFT_CS  15  // HSPI-SS0
 #define TFT_LED 0   // 0 if wired to +5V directly
+// Sd card define - start
+// SD chip select pin.
+const uint8_t SD_CS_PIN = SS;
+// Sd card define - end
 
 Arduino_ESP32SPI *bus = new Arduino_ESP32SPI(TFT_RS, TFT_CS, TFT_CLK, TFT_SDI, TFT_SDO);
 Arduino_ILI9225 *tft = new Arduino_ILI9225(bus, TFT_RST);
@@ -1937,12 +1941,20 @@ void setup() {
 
 	// set callback Jpg
   	TJpgDec.setCallback(onDecode);
+
+	// Sd card setup - start
+	if (!SD.begin(SD_CS_PIN)) {
+		Serial.println("Sd card begin failed");
+		return;
+	}
+  	// Sd card setup - end
 }
 
 // Loop
 void loop() {
 
-  	TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg");
+	// TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg"); // draw the image which is stored in flash
+	TJpgDec.drawSdJpg(0, 0, SD.open( "/sample.jpeg", FILE_READ)); // draw the image which is stored in sd card
 	CDisplayForecast::displayLocation(tft, "Ho Chi Minh", DARKBLUE_CUSTOM);
 	CDisplayForecast::displayTemperature(tft, "33", true, DARKBLUE_CUSTOM);
 	CDisplayForecast::displayDescription(tft, "Clear sky", DARKBLUE_CUSTOM);
