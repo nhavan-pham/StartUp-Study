@@ -6,6 +6,9 @@
 
 #include "DisplayForecast.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #define TFT_RST 26  // IO 26
 #define TFT_RS  25  // IO 25
 #define TFT_CLK 14  // HSPI-SCK
@@ -24,6 +27,9 @@ Arduino_ILI9225 *tft = new Arduino_ILI9225(bus, TFT_RST);
 // Progress bar infor
 int nMinProgress = 0;
 int nMaxProgress = 0;
+
+// a handle of the Display task
+TaskHandle_t xHandleDisplay = NULL;
 
 // Nha TODO -> Start
 unsigned char BackgroundDay[8039] = {
@@ -1935,10 +1941,6 @@ void setup() {
 		ffs_write_file("/background_Night.jpg", (const uint8_t*)BackgroundNight, 13280); // Nha TODO
 	}
 
-	// update progress bar
-  	UpdateProgressbar(100);
-	sleep(2);
-
 	// set callback Jpg
   	TJpgDec.setCallback(onDecode);
 
@@ -1948,41 +1950,20 @@ void setup() {
 		return;
 	}
   	// Sd card setup - end
+
+	// update progress bar
+  	UpdateProgressbar(100);
+	sleep(1);
 }
 
 // Loop
 void loop() {
 
-	// TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg"); // draw the image which is stored in flash
-	TJpgDec.drawSdJpg(0, 0, SD.open( "/sample.jpeg", FILE_READ)); // draw the image which is stored in sd card
-	CDisplayForecast::displayLocation(tft, "Ho Chi Minh", DARKBLUE_CUSTOM);
-	CDisplayForecast::displayTemperature(tft, "33", true, DARKBLUE_CUSTOM);
-	CDisplayForecast::displayDescription(tft, "Clear sky", DARKBLUE_CUSTOM);
-
-	sleep(10);
-
-	// TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg");
-	// CDisplayForecast::displayLocation(tft, "Ho Chi Minh", DARKBLUE_CUSTOM);
-	// CDisplayForecast::displayTemperature(tft, "29", DARKBLUE_CUSTOM);
-	// CDisplayForecast::displayDescription(tft, "Broken clouds", DARKBLUE_CUSTOM);
-
-	// sleep(10);
-
-	TJpgDec.drawFsJpg(0, 0, "/background_Night.jpg");
-	CDisplayForecast::displayLocation(tft, "Ho Chi Minh", LIGHTGREY);
-	CDisplayForecast::displayTemperature(tft, "26", false, LIGHTGREY);
-	CDisplayForecast::displayDescription(tft, "Scattered clouds", LIGHTGREY);
-
-	sleep(10);
-
-	// TJpgDec.drawFsJpg(0, 0, "/background_Night.jpg");
-	// CDisplayForecast::displayLocation(tft, "Ho Chi Minh", LIGHTGREY);
-	// CDisplayForecast::displayTemperature(tft, "21", LIGHTGREY);
-	// CDisplayForecast::displayDescription(tft, "Thunderstorm", LIGHTGREY);
-
-	// sleep(10);
-
-  	//while(true);
+	DisplayTFT(true);
+	Blink_To_Test(); // test RTOS
+	sleep(30);
+	DisplayTFT(false);
+  	while(true);
 }
 
 void InitProgressbar(int nMin, int nMax)
@@ -2005,3 +1986,85 @@ void UpdateProgressbar(int nPercent)
 	
 	tft->fillRoundRect(11,81,nPos,8,0,GREENYELLOW);
 }
+
+void DisplayTFT(bool bDisplay)
+{
+	if(bDisplay)
+	{
+		static uint8_t ucParameterToPass;
+		Serial.println(">>>>> Create DISPLAY task");
+		xTaskCreate(&display_task, "display_task", 2048, &ucParameterToPass, tskIDLE_PRIORITY, &xHandleDisplay);
+		configASSERT( xHandleDisplay );
+	}
+	else
+	{
+		// Use the handle to delete the task.
+		if( xHandleDisplay != NULL )
+		{
+			Serial.println(">>>>> Delete DISPLAY task");
+			vTaskDelete( xHandleDisplay );
+		}
+	}
+}
+
+void display_task(void *pvParameter)
+{
+	Serial.println(">>>>> Execute DISPLAY task");
+	while(true)
+	{
+		TJpgDec.drawFsJpg(0, 0, "/background_Day.jpg"); // draw the image which is stored in flash
+		//TJpgDec.drawSdJpg(0, 0, SD.open( "/sample.jpeg", FILE_READ)); // draw the image which is stored in sd card
+		CDisplayForecast::displayLocation(tft, "Ho Chi Minh", DARKBLUE_CUSTOM);
+		CDisplayForecast::displayTemperature(tft, "33", true, DARKBLUE_CUSTOM);
+		CDisplayForecast::displayDescription(tft, "Clear sky", DARKBLUE_CUSTOM);
+
+		vTaskDelay(5000 / portTICK_RATE_MS); // delay 5s
+
+		TJpgDec.drawFsJpg(0, 0, "/background_Night.jpg");
+		CDisplayForecast::displayLocation(tft, "Ho Chi Minh", LIGHTGREY);
+		CDisplayForecast::displayTemperature(tft, "26", false, LIGHTGREY);
+		CDisplayForecast::displayDescription(tft, "Scattered clouds", LIGHTGREY);
+
+		vTaskDelay(5000 / portTICK_RATE_MS); // delay 5s
+	}
+}
+// ==================================================================== >> code test RTOS
+void Blink_To_Test()
+{
+	static uint8_t ucParameterToPass;
+	TaskHandle_t xHandle = NULL;
+
+	Serial.println(">>>>> Create BLINK task");
+	xTaskCreate(&blink_task, "blink_task", 2048, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+	
+	configASSERT( xHandle );
+
+	// // Use the handle to delete the task.
+	// if( xHandle != NULL )
+	// {
+	// 	Serial.println(">>>>> Delete BLINK task");
+	// 	vTaskDelete( xHandle );
+	// }
+}
+
+void blink_task(void *pvParameter)
+{
+	Serial.println(">>>>> Execute BLINK task");
+	while(true)
+	{
+		tft->setTextColor(RED);
+		tft->setCursor(200, 20);
+		tft->setTextSize(2);
+		tft->println("X");
+
+		vTaskDelay(1000 / portTICK_RATE_MS); // delay 1s
+
+		tft->setTextColor(GREEN);
+		tft->setCursor(200, 20);
+		tft->setTextSize(2);
+		tft->println("X");
+
+		vTaskDelay(1000 / portTICK_RATE_MS); // delay 1s
+	}
+}
+// ==================================================================== << code test RTOS
