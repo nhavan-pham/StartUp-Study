@@ -9,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "OneButton.h"
+
 #define TFT_RST 26  // IO 26
 #define TFT_RS  25  // IO 25
 #define TFT_CLK 14  // HSPI-SCK
@@ -20,6 +22,22 @@
 // SD chip select pin.
 const uint8_t SD_CS_PIN = SS;
 // Sd card define - end
+
+// Button define - start
+#define PIN_INPUT 4
+
+// Setup a new OneButton on pin PIN_INPUT
+// The 2. parameter activeLOW is true, because external wiring sets the button to LOW when pressed.
+OneButton button(PIN_INPUT, true);
+
+// In case the momentary button puts the input to HIGH when pressed:
+// The 2. parameter activeLOW is false when the external wiring sets the button to HIGH when pressed.
+// The 3. parameter can be used to disable the PullUp .
+ //OneButton button(PIN_INPUT, false, false);
+bool clickState = false;
+bool doubleclickState = false;
+
+// Button define - end
 
 Arduino_ESP32SPI *bus = new Arduino_ESP32SPI(TFT_RS, TFT_CS, TFT_CLK, TFT_SDI, TFT_SDO);
 Arduino_ILI9225 *tft = new Arduino_ILI9225(bus, TFT_RST);
@@ -1944,22 +1962,31 @@ void setup() {
 	// set callback Jpg
   	TJpgDec.setCallback(onDecode);
 
+
+	// Button setup - start
+  	// link the doubleclick function to be called on a single event.
+  	button.attachClick(btnClickFunction);
+	// link the doubleclick function to be called on a doubleclick event.
+	button.attachDoubleClick(btnDoubleClickFunction);
+	// Button setup - end
+
+	// update progress bar
+  	UpdateProgressbar(100);
+	sleep(1);
+
 	// Sd card setup - start
 	if (!SD.begin(SD_CS_PIN)) {
 		Serial.println("Sd card begin failed");
 		return;
 	}
   	// Sd card setup - end
-
-	// update progress bar
-  	UpdateProgressbar(100);
-	sleep(1);
 }
 
 // Loop
 void loop() {
 
 	DisplayTFT(true);
+	createBtnTask();
 	Blink_To_Test(); // test RTOS
 	sleep(30);
 	DisplayTFT(false);
@@ -2068,3 +2095,71 @@ void blink_task(void *pvParameter)
 	}
 }
 // ==================================================================== << code test RTOS
+
+// Button function - start
+// this function will be called when the button was pressed.
+void btnClickFunction()
+{
+	Serial.println("Btn - x1");
+	clickState = !clickState;
+
+	if(clickState){
+  		tft->setTextColor(RED);
+		tft->setCursor(70, 100);
+		tft->setTextSize(2);
+		tft->println("Click");
+	}
+	else{
+  		tft->setTextColor(YELLOW);
+		tft->setCursor(70, 100);
+		tft->setTextSize(2);
+		tft->println("Click");
+	}
+}
+
+// this function will be called when the button was pressed 2 times in a short timeframe.
+void btnDoubleClickFunction()
+{
+  Serial.println("Btn - x2");
+
+	doubleclickState = !doubleclickState;
+
+	if(doubleclickState){
+		tft->setTextColor(RED);
+		tft->setCursor(70, 130);
+		tft->setTextSize(2);
+		tft->println("Double click");
+	}
+	else{
+		tft->setTextColor(YELLOW);
+		tft->setCursor(70, 130);
+		tft->setTextSize(2);
+		tft->println("Double click");
+	}
+
+}
+
+/*
+* function : watching the push button task
+* return : none
+*/
+void watchingBtn_task(void *pvParameter)
+{
+	while(true)
+	{
+  		button.tick();
+		vTaskDelay(10 / portTICK_RATE_MS); // delay 1s
+	}
+}
+
+void createBtnTask()
+{
+	static uint8_t ucParameterToPass;
+	TaskHandle_t xHandle = NULL;
+
+	Serial.println(">>>>> Create watchingBtn task");
+	xTaskCreate(&watchingBtn_task, "watchingBtn_task", 2048, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+	
+	configASSERT(xHandle);
+}
+// Button function - end
